@@ -1,0 +1,26 @@
+stock_config:
+  css:
+    theme:
+      css/style.css: {}
+  js:
+    js/stock_config.js: {}
+    js/script.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/drupalSettings
+    - core/js-cookie
+
+
+
+quantity_pricing:
+  js:
+    js/quantity_pricing.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/drupalSettings
+    - core/js-cookie
+
+
+

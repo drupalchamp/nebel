@@ -1,0 +1,7 @@
+name: 'Custom Product Importer'
+type: module
+description: 'Provides a custom interface to import, update, and manage products and their attributes in bulk.'
+core_version_requirement: ^10
+package: Custom
+dependencies:
+  - csv_importer:csv_importer

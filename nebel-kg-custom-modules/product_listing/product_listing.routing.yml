@@ -1,0 +1,42 @@
+# product_listing.list:
+#   path: '/product-list/{url_alias}'
+#   defaults:
+#     _controller: '\Drupal\product_listing\Controller\ProductListingController::listTerms'
+#     _title: 'Product Listing'
+#   requirements:
+#     _permission: 'access content'
+#     # url_alias: .+
+
+product_listing.list:
+  path: '/product-list/{url_alias}'
+  defaults:
+    _controller: '\Drupal\product_listing\Controller\ProductListingController::listTerms'
+    _title_callback: 'Drupal\product_listing\Controller\ProductListingController::pageTitle'
+  requirements:
+    _permission: 'access content'
+
+
+product_listing.product_by_brand:
+  path: '/manufacture/{name}'
+  defaults:
+    _controller: '\Drupal\product_listing\Controller\ProductListingByBrandController::listProductByBrand'
+    _title: ' Product list by brand'
+  requirements:
+    _permission: 'access content'
+
+product_listing.merge_variations:
+  path: '/merge-products'
+  defaults:
+    _controller: '\Drupal\product_listing\Controller\MergeVariations::merge'
+    _title: 'Merge Product Variations into One product'
+  requirements:
+    _permission: 'access content'
+
+product_listing.merge_variations_unpublished:
+  path: '/merge-products-unpublished'
+  defaults:
+    _controller: '\Drupal\product_listing\Controller\MergeVariationsUnpublished::merge'
+    _title: 'Merge Unpublished Product Variations into One product'
+  requirements:
+    _permission: 'access content'
+

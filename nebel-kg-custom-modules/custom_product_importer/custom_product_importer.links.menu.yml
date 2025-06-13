@@ -1,0 +1,42 @@
+custom_product_importer.product_import:
+  title: 'Import Products'
+  route_name: custom_product_importer.product_import
+  parent: commerce.configuration
+  weight: 0
+  description: 'Import products from a CSV file.'
+
+custom_product_importer.config_form:
+  title: 'Product file path setting'
+  route_name: custom_product_importer.config_form  
+  parent: commerce.configuration  
+  weight: 1
+  description: 'Configure settings for the Product Importer module.'
+
+custom_product_importer.sku_image_import_form:
+  title: 'Upload missing product image'
+  route_name: custom_product_importer.sku_image_import_form  
+  parent: commerce.configuration  
+  weight: 2
+  description: 'Upload product images and associate them with SKUs.'
+
+
+custom_product_importer.product_color_import_form:
+  title: 'Add color code with image'
+  route_name: custom_product_importer.product_color_upload_form 
+  parent: commerce.configuration  
+  weight: 3
+  description: 'Add product color attribute value'
+
+custom_product_importer.product_type_import_form:
+  title: 'Add product type'
+  route_name: custom_product_importer.product_type_upload_form 
+  parent: commerce.configuration  
+  weight: 3
+  description: 'Add product type attribute value'  
+
+custom_product_importer.product_format_import_form:
+  title: 'Add product format'
+  route_name: custom_product_importer.product_format_upload_form
+  parent: commerce.configuration  
+  weight: 4
+  description: 'Add product format attribute value'    

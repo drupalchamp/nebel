@@ -1,0 +1,489 @@
+<?php
+
+use Drupal\Core\Form\FormBase;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\commerce_product\Entity\Product;
+use Drupal\commerce_product\Entity\ProductVariation;
+use Drupal\commerce_price\Price;
+use Drupal\Core\Ajax\AjaxResponse;
+use Drupal\Core\Ajax\ReplaceCommand;
+use Drupal\Core\Ajax\RedirectCommand;
+use Drupal\Core\Ajax\HtmlCommand;
+use Drupal\commerce_pricelist\Entity\PricelistItem;
+use Drupal\views\ViewExecutable;
+use Drupal\views\Plugin\views\query\QueryPluginBase;
+
+
+
+// function product_listing_views_pre_render(ViewExecutable $view) {
+// 	if ($view->id() == 'product_search') {
+// 	  $session = \Drupal::service('session');
+// 	  $pager_number = $view->pager ? $view->pager->getCurrentPage() : 0;
+      
+// 	  if ($pager_number === 0) {
+// 	    // Clear the session if pager is at the first page
+// 	    $session->remove('product_ids');
+// 	    $session->set('product_ids', []);
+// 	  }
+      
+// 	  // Retrieve existing product IDs from the session
+// 	  $product_ids = $session->get('product_ids', []);
+      
+// 	  $new_result = [];
+// 	  foreach ($view->result as $row) {
+// 	    $pid = $row->_entity->id(); // Cleaner way to get the product ID
+// 	    if (!isset($product_ids[$pid])) {
+// 	      $product_ids[$pid] = true;
+// 	      $new_result[] = $row;
+// 	    }
+// 	  }
+      
+// 	  // Update the session with the product IDs
+// 	  $session->set('product_ids', $product_ids);
+      
+// 	  // Assign the filtered results back to the view
+// 	  $view->result = array_values($new_result);
+// 	}
+//       }
+
+
+function getPriceListItemOfVariation($variation_id){
+	$price_list_item_storage = \Drupal::entityTypeManager()->getStorage('commerce_pricelist_item');
+	$query = $price_list_item_storage->getQuery();
+	$query->accessCheck(FALSE);
+	$query->condition('status', 1);
+	$query->condition('purchasable_entity', $variation_id);
+	$query->sort('quantity', 'ASC');
+	$result = $query->execute();
+	$pricelist_items = $price_list_item_storage->loadMultiple($result);
+	return $pricelist_items;
+}
+
+
+/**
+ * Implements hook_form_alter().
+ */
+
+function product_listing_form_alter(&$form, FormStateInterface $form_state, $form_id) {
+	$form['#attached']['library'][] = 'product_listing/quantity_pricing';
+	$form['#attached']['library'][] = 'product_listing/stock_config';
+
+	// Initialize $product_id with a default value.
+	$product_id = NULL;
+
+	// Get the product from the route parameters.
+	$product = \Drupal::routeMatch()->getParameter('commerce_product');
+	if ($product && $product instanceof \Drupal\commerce_product\Entity\ProductInterface) {
+		$product_id = $product->id();
+	}
+	if ($form_id === 'commerce_order_item_add_to_cart_form_commerce_product_'.$product_id.'') {
+		if (isset($form['quantity'])) {
+			$variation_id = 0;
+			if(strpos($_SERVER['REQUEST_URI'],'?v=')){
+			$variation_id = explode('?v=',$_SERVER['REQUEST_URI'])[1];
+				}
+			else{
+				$variations = $product->getDefaultVariation();
+				$variation_id = $variations->id();
+			}
+			$pricelist_items = getPriceListItemOfVariation($variation_id);
+			$all_quantities = [];
+			
+			if(!empty($pricelist_items)) {
+				foreach ($pricelist_items as $key => $item) {
+					$quantity_val = $item->get('quantity')->value;
+					$all_quantities[] = $quantity_val;
+				}
+			}
+			if(count($all_quantities)>0)
+			$form['quantity']['widget'][0]['value']['#default_value'] = (int) min($all_quantities);
+			
+		// Sorting the color attributes of a product 
+	
+			
+
+			if (isset($form['purchased_entity']['widget'][0]['attributes']['attribute_select_format']['#options'])) {
+				$options = $form['purchased_entity']['widget'][0]['attributes']['attribute_select_format']['#options'];
+				
+				// Extracting color codes and sort.
+				uasort($options, function($a, $b) {
+					// Extract numeric values if they exist
+					preg_match('/\d+/', $a, $matchesA);
+					preg_match('/\d+/', $b, $matchesB);
+				    
+					$hasNumA = isset($matchesA[0]);
+					$hasNumB = isset($matchesB[0]);
+				    
+					if ($hasNumA && $hasNumB) {
+					    return (int)$matchesA[0] <=> (int)$matchesB[0]; // numeric sort
+					}
+					elseif ($hasNumA) {
+					    return -1; // A has number, B doesn't — A comes first
+					}
+					elseif ($hasNumB) {
+					    return 1;  // B has number, A doesn't — B comes first
+					}
+					else {
+					    return strnatcasecmp($a, $b); // fallback to case-insensitive natural sort
+					}
+				    });
+				
+				// attach the sorted options back to the form.
+				$form['purchased_entity']['widget'][0]['attributes']['attribute_select_format']['#options'] = $options;
+			}
+			
+
+		if (isset($form['purchased_entity']['widget'][0]['attributes']['attribute_type']['#options'])) {
+			$options = $form['purchased_entity']['widget'][0]['attributes']['attribute_type']['#options'];
+			
+			// Extracting color codes and sort.
+			uasort($options, function($a, $b) {
+				// Extract numeric values if they exist
+				preg_match('/\d+/', $a, $matchesA);
+				preg_match('/\d+/', $b, $matchesB);
+			    
+				$hasNumA = isset($matchesA[0]);
+				$hasNumB = isset($matchesB[0]);
+			    
+				if ($hasNumA && $hasNumB) {
+				    return (int)$matchesA[0] <=> (int)$matchesB[0]; // numeric sort
+				}
+				elseif ($hasNumA) {
+				    return -1; // A has number, B doesn't — A comes first
+				}
+				elseif ($hasNumB) {
+				    return 1;  // B has number, A doesn't — B comes first
+				}
+				else {
+				    return strnatcasecmp($a, $b); // fallback to case-insensitive natural sort
+				}
+			    });
+			
+			// attach the sorted options back to the form.
+			$form['purchased_entity']['widget'][0]['attributes']['attribute_type']['#options'] = $options;
+		}
+
+
+
+		if (isset($form['purchased_entity']['widget'][0]['attributes']['attribute_color']['#options'])) {
+			$options = $form['purchased_entity']['widget'][0]['attributes']['attribute_color']['#options'];
+			
+			// Extracting color codes and sort.
+			uasort($options, function($a, $b) {
+				// Extract the numbers inside the parentheses using regex.
+				preg_match('/\((\d+)/', $a, $matchesA);
+				preg_match('/\((\d+)/', $b, $matchesB);
+			
+				$numA = isset($matchesA[1]) ? (int) $matchesA[1] : 0;
+				$numB = isset($matchesB[1]) ? (int) $matchesB[1] : 0;
+			
+				return $numA <=> $numB;
+			});
+			
+			// attach the sorted options back to the form.
+			$form['purchased_entity']['widget'][0]['attributes']['attribute_color']['#options'] = $options;
+		}
+
+			//       dump($form['purchased_entity']['widget'][0]['attributes']['attribute_color']['#options']);
+
+			// $form['quantity']['widget'][0]['value']['#ajax'] = [
+			//   'callback' => 'product_listing_quantity_update_callback',
+			//   'event' => 'change',
+			//   'method'    => 'replace',
+			//   'wrapper' => 'quantity-wrapper',
+			// ];
+		    $form['quantity']['#prefix'] = '<div id= "quantity-wrapper">';
+		    $form['quantity']['#suffix'] = '</div>';
+		    $form['quantity_minus'] = [
+			  '#type' => 'button',
+			  '#value' => '−',
+			  // '#ajax' => [
+			  //   'callback' => 'product_listing_quantity_update_callback',
+			  //   'wrapper' => 'quantity-wrapper',
+			  //   'method'    => 'replace',
+			  // ],
+			  '#name' => 'quantity_minus',
+			  '#attributes' => ['class' => ['quantity-minus']],
+		    ];
+
+		    $form['quantity_plus'] = [
+			  '#type' => 'button',
+			  '#value' => '+',
+			  // '#ajax' => [
+			  //   'callback' => 'product_listing_quantity_update_callback',
+			  //   'wrapper' => 'quantity-wrapper',
+			  //   'method'    => 'replace',
+			  // ],
+			  '#name' => 'quantity_plus',
+			  '#attributes' => ['class' => ['quantity-plus']],
+		    ];
+			// $user_input = $form_state->getUserInput();
+			// //$user_input = $form_state->getValues();
+			// if (!empty($user_input)) {
+			//   $element = $form_state->getTriggeringElement();
+			//   if($element['#name'] == 'quantity_plus'){
+			// 	$quantity = $user_input['quantity'][0]['value']+1;
+			//   }else if(($element['#name'] == 'quantity_minus')){
+			// 	$quantity = $user_input['quantity'][0]['value']-1;
+			//   }else{
+			// 	$quantity = $user_input['quantity'][0]['value'];
+			//   }
+			//   $form['quantity']['widget'][0]['value']['#value'] = $quantity;
+			// }
+			$product = Product::load($product_id);
+			if(!empty($quantity)){
+				$form['quantity']['widget'][0]['value']['#value'] = $quantity;
+			}else{
+				$quantity = 1;
+			}
+			$variations = $product->getDefaultVariation();
+			$variation_id = $variations->id();
+			
+			if(!empty($_SERVER['QUERY_STRING'] && strpos($_SERVER['QUERY_STRING'], 'v=') !== false)){
+				$variation_id = explode('v=',$_SERVER['QUERY_STRING'])[1];
+				// \Drupal::logger('price')->notice($_SERVER['QUERY_STRING']);
+			}
+		}
+		$current_langcode = \Drupal::languageManager()->getCurrentLanguage()->getId();
+		$pricelist_items = getPriceListItemOfVariation($variation_id);
+		$quantity = [];
+		$formatted_price = [];
+		$price_val = [];
+		if(!empty($pricelist_items)) {
+			foreach ($pricelist_items as $key => $item) {
+				$price = $item->get('price')->number;
+				$price_value = number_format($price, 2);
+				$price_val[] = number_format($price, 2);
+				$quantity_val = $item->get('quantity')->value;
+				$quantity_value = explode('.', $quantity_val);
+				$quantity[$price_value] = $quantity_value['0'];
+				$formatted_price[$quantity_value['0']] = number_format($price, 2);
+			}
+			
+			$new_price = '€ '.$price_val['0'];
+		
+			if($_SERVER['QUERY_STRING']!=''){
+				$newly_selected_variation = Drupal\commerce_product\Entity\ProductVariation::load(explode('v=',$_SERVER['QUERY_STRING'])[1]);
+				$pricelist_items = getPriceListItemOfVariation(explode('v=',$_SERVER['QUERY_STRING'])[1]);
+				foreach ($pricelist_items as $key => $item) {
+					$price = $item->get('price')->number;
+					$price_val[] = number_format($price, 2);
+				}
+				
+				$first_quantity_price =  str_replace(',', '', $price_val['0']) * $form['quantity']['widget'][0]['value']['#default_value'];
+				if($current_langcode == 'de'){
+				$new_price = '€ '.number_format($first_quantity_price, 2, ',', '.');
+				}
+				else{
+					$new_price = '€ '.number_format($first_quantity_price,2);
+				}
+				
+			}else{	
+				$first_quantity_price = str_replace(',', '', $price_val['0']) * $form['quantity']['widget'][0]['value']['#default_value'];
+				if($current_langcode == 'de'){
+				$new_price = '€ '.number_format($first_quantity_price, 2, ',', '.');
+				}else{
+					$new_price = '€ '.number_format($first_quantity_price,2);
+				}
+				}
+
+
+			$form['price_quantity_wrapper'] = [
+				'#type' => 'fieldset',
+				'#prefix' => '<div class="price-quantity-wrapper">',
+				'#suffix' => '</div>',
+			];
+			$form['price_quantity_wrapper']['default_quantity'] = [
+			  '#type' => 'radios',
+			  '#title' => t('Quantity'),
+			  '#options' => $quantity,
+			  '#attributes' => [
+				'class' => ['quantity-list']
+			  ],
+			  //'#default_value' => key($quantity),
+			  
+			];
+			$form['price_quantity_wrapper']['default_price'] = [
+			  '#type' => 'radios',
+			  '#title' => t('Price'),
+			  '#options' => $formatted_price,
+			  '#attributes' => [
+				'class' => ['price-list']
+			  ],
+ 
+			];
+			
+			$form['response_area'] = [
+				'#type' => 'markup',
+				// '#markup' => '<div class="field--type-commerce-price"><div class="field__label">Price</div><div class="field__item">' . $new_price .'</div></div>',
+				
+				'#markup' => '<div class="field--type-commerce-price"><div class="field__label">' . t('Price') . '</div><div class="field__item">' . $new_price . '</div>
+              </div>',
+
+				'#prefix' => '<div id="price-wrapper">',
+				'#suffix' => '</div>',
+			];
+		}
+	}
+
+}
+
+/**
+ * Ajax callback to update the quantity.
+ */
+
+function product_listing_quantity_update_callback(array &$form, \Drupal\Core\Form\FormStateInterface $form_state) {
+	// if($_SERVER['QUERY_STRING']!=''){
+	// 	$newly_selected_variation = Drupal\commerce_product\Entity\ProductVariation::load(explode('v=',$_SERVER['QUERY_STRING'])[1]);
+	// 	if(!empty($newly_selected_variation)){
+	// 	$newly_selected_varition_price = $newly_selected_variation->getPrice()->getNumber();
+	// 	$new_price = '€'.number_format((float)$newly_selected_varition_price,2);
+	// 	\Drupal::logger('price')->notice($new_price);
+	// 	}
+	// }else{	// \Drupal::logger('price')->notice($new_price);
+	// 		$new_price = '€'.$price_val['0'];
+	// 	}
+	$xyz = 0;
+	$current_langcode = \Drupal::languageManager()->getCurrentLanguage()->getId();
+	// \Drupal::logger('price')->notice($xyz);
+  $selected_quantity = $form_state->getValue('default_quantity');
+  $user_input = $form_state->getUserInput();
+  //$user_input = $form_state->getValues();
+  $element = $form_state->getTriggeringElement();
+  if($element['#name'] == 'quantity_plus'){
+    $quantity = $user_input['quantity'][0]['value']+1;
+  }else if(($element['#name'] == 'quantity_minus')){
+	  if($user_input['quantity'][0]['value']>1){
+    $quantity = $user_input['quantity'][0]['value']-1;
+	  }else{
+		$quantity = 1;
+	  }
+  }else{
+    $quantity = $user_input['quantity'][0]['value'];
+  }
+  $form['quantity']['widget'][0]['value']['#value'] = $quantity;
+  $arraydata = explode('commerce_order_item_add_to_cart_form_commerce_product_', $user_input['form_id']);
+
+  $product = Product::load($arraydata[1]);
+  $product_variation = $product->getDefaultVariation();
+  $all_quantities=[];
+
+  if(strpos($_SERVER['QUERY_STRING'],'v=')!=false){
+	$variation_id = explode('v=',$_SERVER['QUERY_STRING'])[1];
+
+	$pricelist_items = getPriceListItemOfVariation($variation_id);
+	
+      if(!empty($pricelist_items)) {
+	      foreach ($pricelist_items as $key => $item) {
+		
+		      $quantity_val = $item->get('quantity')->value;
+		      $all_quantities[] = [
+			      'quantity' => $quantity_val,
+			      'price' => $item->get('price')->number
+		      ];     
+	      }
+      }
+}else{
+	$variation_id = $product_variation->id();
+
+	$pricelist_items = getPriceListItemOfVariation($variation_id);
+	
+      if(!empty($pricelist_items)) {
+	      foreach ($pricelist_items as $key => $item) {
+		
+		      $quantity_val = $item->get('quantity')->value;
+		      $all_quantities[] = [
+			      'quantity' => $quantity_val,
+			      'price' => $item->get('price')->number
+		      ];     
+	      }
+      }
+
+}
+
+
+
+
+ 
+  $original_price = $product_variation->getPrice();
+
+//   \Drupal::logger('product_variation')->notice('<pre>'.print_r($original_price, TRUE).'</pre>');
+\Drupal::logger('quantity')->notice('<pre>'.print_r($quantity, TRUE).'</pre>');
+\Drupal::logger('all_quantities')->notice('<pre>'.print_r($all_quantities, TRUE).'</pre>');
+  if (!empty($all_quantities)) {
+	$price = 0;
+	foreach ($all_quantities as $item) {
+		if ($quantity >= $item['quantity']) {
+		    $price = $item['price'];
+		} else {
+		    break;
+		}
+	    }
+
+	    
+		$final_price = (float) str_replace(',', '', $price) * (float) $quantity;
+	    if($current_langcode == 'de'){
+		$parts = explode('.',$final_price); // Separating integer and decimal parts
+		$intPart = $parts[0];
+		$decimalPart = $parts[1];
+		// Adding thousands separator to the integer part
+                                                                  
+		$new_price = '€'. number_format($intPart, 0, '', '.').','.$decimalPart;
+		}
+		else
+	    $new_price = '€'.number_format((float) $final_price, 2);
+	    
+	//     // \Drupal::logger('new_price1')->notice('<pre>'.print_r($new_price, TRUE).'</pre>');
+	    $output = '';
+	    
+	    $output .= '<div class="field--type-commerce-price"><div class="field__label">Price</div><div class="field__item">' . $new_price.'</div></div>';
+
+	    $form['response_area']['#markup'] = $output;
+    }
+
+  $ajax_response = new AjaxResponse(); 
+  $ajax_response->addCommand(new HtmlCommand('#quantity-wrapper', $form['quantity']));
+  $ajax_response->addCommand(new ReplaceCommand('#price-wrapper', $form['response_area']));
+  return $ajax_response;
+}
+
+
+
+
+// Define the AJAX callback function
+function price_quantity_calculation_ajax_callback(array &$form, FormStateInterface $form_state) {
+
+//     $selected_quantity = $form_state->getValue('default_quantity');
+// 	$quantity_options = $form['price_quantity_wrapper']['default_quantity']['#options'];
+// 	$selected_quantity_label = isset($quantity_options[$selected_quantity]) ? $quantity_options[$selected_quantity] : '';
+// 	$selected_price = $form_state->getValue('default_price');
+// 	$price_options = $form['price_quantity_wrapper']['default_price']['#options'];
+// 	$selected_price_label = isset($price_options[$selected_price]) ? $price_options[$selected_price] : '';
+// 	$user_input = $form_state->getUserInput();
+// 	//$user_input = $form_state->getValues();
+// 	$element = $form_state->getTriggeringElement();
+// 	if($element['#name'] == 'default_quantity'){
+// 	  $quantity = $selected_quantity_label;
+// 	}else if(($element['#name'] == 'default_price')){
+// 	  $quantity = $selected_price_label;
+// 	}else{
+// 	  $quantity = $user_input['quantity'][0]['value'];
+// 	}
+// 	$form['quantity']['widget'][0]['value']['#value'] = $quantity;
+// 	if($element['#name'] == 'default_quantity'){
+// 	   $final_price = $selected_quantity * $selected_quantity_label;
+// 	}else {
+// 	//    $final_price = $selected_price * $selected_price_label;
+// 	$final_price = str_replace(',', '', $selected_price) * $selected_price_label;
+// 	}
+// 	$new_price = '€'.number_format($final_price, 2, ',', '.');
+// 	// \Drupal::logger('new_price2')->notice('<pre>'.print_r($new_price, TRUE).'</pre>');
+// 	$output = '';
+// 	$output .= '<div class="field--type-commerce-price"><div class="field__label">Price</div><div class="field__item">' . $new_price .'</div></div>';
+    
+//     	$form['response_area']['#markup'] = $output;
+
+	$ajax_response = new AjaxResponse(); 
+	// $ajax_response->addCommand(new ReplaceCommand('#price-wrapper', $form['response_area']));
+	return $ajax_response;
+}

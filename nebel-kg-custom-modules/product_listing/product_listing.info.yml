@@ -1,0 +1,7 @@
+name: 'Product Listing'
+type: module
+description: 'Implements dynamic pricing logic for Commerce products based on quantity selection,displaying proper stock message according to stock value of product, merges unpublished product variations with their selected unpublished and published products, and provide page for custom product listing features filtered by brand and category.'
+core_version_requirement: ^9 || ^10
+package: Custom
+dependencies:
+  - taxonomy:taxonomy

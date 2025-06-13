@@ -1,0 +1,20 @@
+<?php
+
+/**
+ * @file
+ * Primary module hooks for pay_through_invoice module.
+ */
+
+ function pay_through_invoice_form_commerce_checkout_flow_multistep_default_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
+
+    // Check for the "Pay Later" payment method.
+    $payment_method_plugin_id = 'new--manual--pay_via_invoice';  // Adjust this to the actual plugin ID if different.
+
+    // If the "Pay Later" payment method exists in the form, disable and hide it.
+    if (isset($form['payment_information']['payment_method'][$payment_method_plugin_id])) {
+            // Disable the payment method.
+            $form['payment_information']['payment_method'][$payment_method_plugin_id]['#attributes']['disabled'] = 'disabled';
+            $form['payment_information']['payment_method'][$payment_method_plugin_id]['#attributes']['class'][] = 'hidden-pay-later';
+
+    }
+}

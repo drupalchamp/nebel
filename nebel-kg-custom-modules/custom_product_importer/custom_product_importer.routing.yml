@@ -1,0 +1,66 @@
+custom_product_importer.product_import:
+  path: '/admin/config/product-import'
+  defaults:
+    _form: '\Drupal\custom_product_importer\Form\ProductImportForm'
+    _title: 'Import Products'
+  requirements:
+    _permission: 'administer site configuration'
+
+custom_product_importer.product_delete:
+  path: '/admin/config/product-delete'
+  defaults:
+    _form: '\Drupal\custom_product_importer\Form\ProductDeleteForm'
+    _title: Delete Products'
+  requirements:
+    _permission: 'administer site configuration'    
+
+custom_product_importer.config_form:
+  path: '/admin/config/product-import/settings'
+  defaults:
+    _form: '\Drupal\custom_product_importer\Form\CustomConfigForm'
+    _title: 'Product Importer Settings'
+  requirements:
+    _role: 'administrator+content_editor'
+
+
+custom_product_importer.productimageimport:
+  path: '/image-upload'
+  defaults:
+    _controller: '\Drupal\custom_product_importer\Controller\ColorImageUpload::setImage'
+    _title: 'Product image update'
+  requirements:
+    _permission: 'access content'
+
+
+custom_product_importer.sku_image_import_form:
+  path: '/admin/config/upload-product-image'
+  defaults:
+    _form: '\Drupal\custom_product_importer\Form\ProductSkuImageImporter'
+    _title: 'Upload missing product image'
+  requirements:
+    _permission: 'upload product images'
+
+custom_product_importer.product_color_upload_form:
+  path: '/admin/config/add-color-code'
+  defaults:
+    _form: '\Drupal\custom_product_importer\Form\AttributeColorUpload'
+    _title: 'Add color code with image'
+  requirements:
+    _permission: 'Add color code'
+
+custom_product_importer.product_type_upload_form:
+  path: '/admin/config/add-product-type'
+  defaults:
+    _form: '\Drupal\custom_product_importer\Form\AttributeTypeUpload'
+    _title: 'Add product type'
+  requirements:
+    _permission: 'Add product type'
+
+
+custom_product_importer.product_format_upload_form:
+  path: '/admin/config/add-product-format'
+  defaults:
+    _form: '\Drupal\custom_product_importer\Form\AttributeFormatUpload'
+    _title: 'Add product format'
+  requirements:
+    _permission: 'Add product format'    

@@ -1,0 +1,8 @@
+name: 'Pay Through Invoice'
+type: module
+description: 'Provides a custom plugins to implements Cash on Delivery (COD) as a payment gateway.'
+package: Custom
+core_version_requirement: ^10 || ^11
+dependencies:
+  - commerce:commerce_order
+  - commerce:commerce_payment
